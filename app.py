@@ -1,108 +1,159 @@
-from flask import Flask, jsonify, request, abort
+from flask import Flask, request, redirect, url_for, flash, render_template_string
 
 app = Flask(__name__)
+app.secret_key = "supersecretkey"
 
-# Sample in-memory student data
+# In-memory student data
 students = [
-    {
-        "id": 1,
-        "name": "Juan",
-        "grade": 10,
-        "section": "Zechariah",
-        "age": 15,
-        "favorite_subject": "Math"
-    },
-    {
-        "id": 2,
-        "name": "Maria",
-        "grade": 9,
-        "section": "Gabriel",
-        "age": 14,
-        "favorite_subject": "Science"
-    }
+    {"id": 1, "name": "Juan", "grade": 10, "section": "Zechariah", "age": 15, "favorite_subject": "Math"},
+    {"id": 2, "name": "Maria", "grade": 9, "section": "Gabriel", "age": 14, "favorite_subject": "Science"}
 ]
 
 # -------------------------------
-# Home route
+# Home page with UI
 # -------------------------------
 @app.route('/')
 def home():
-    return "Welcome to my first API!", 200
+    template = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Student Management</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-light">
+    <div class="container py-5">
+        <h1 class="mb-4 text-center">Student Management</h1>
+
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <!-- Add Student Form -->
+        <div class="card mb-4 p-3 shadow-sm">
+            <h4>Add New Student</h4>
+            <form action="{{ url_for('add_student') }}" method="POST">
+                <div class="row g-3">
+                    <div class="col-md-2"><input type="text" name="name" class="form-control" placeholder="Name"></div>
+                    <div class="col-md-1"><input type="number" name="grade" class="form-control" placeholder="Grade"></div>
+                    <div class="col-md-2"><input type="text" name="section" class="form-control" placeholder="Section"></div>
+                    <div class="col-md-1"><input type="number" name="age" class="form-control" placeholder="Age"></div>
+                    <div class="col-md-2"><input type="text" name="favorite_subject" class="form-control" placeholder="Favorite Subject"></div>
+                    <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">Add Student</button></div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Student Table -->
+        <table class="table table-striped table-bordered shadow-sm bg-white">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Grade</th>
+                    <th>Section</th>
+                    <th>Age</th>
+                    <th>Favorite Subject</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for student in students %}
+                <tr>
+                    <form action="{{ url_for('edit_student', student_id=student.id) }}" method="POST">
+                    <td>{{ student.id }}</td>
+                    <td><input type="text" name="name" value="{{ student.name }}" class="form-control"></td>
+                    <td><input type="number" name="grade" value="{{ student.grade }}" class="form-control"></td>
+                    <td><input type="text" name="section" value="{{ student.section }}" class="form-control"></td>
+                    <td><input type="number" name="age" value="{{ student.age }}" class="form-control"></td>
+                    <td><input type="text" name="favorite_subject" value="{{ student.favorite_subject }}" class="form-control"></td>
+                    <td class="d-flex gap-1">
+                        <button type="submit" class="btn btn-success btn-sm">Save</button>
+                        <a href="{{ url_for('delete_student', student_id=student.id) }}" class="btn btn-danger btn-sm">Delete</a>
+                    </td>
+                    </form>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    </body>
+    </html>
+    """
+    return render_template_string(template, students=students)
 
 # -------------------------------
-# GET students
+# Add student
 # -------------------------------
-@app.route('/student', methods=['GET'])
-def get_student():
-    student_id = request.args.get('id')
-    if student_id:
-        try:
-            student_id = int(student_id)
-        except ValueError:
-            return jsonify({"error": "Invalid student ID"}), 400
-        student = next((s for s in students if s["id"] == student_id), None)
-        if student:
-            return jsonify(student), 200
-        else:
-            return jsonify({"error": "Student not found"}), 404
-    else:
-        return jsonify(students), 200
-
-# -------------------------------
-# POST new student
-# -------------------------------
-@app.route('/student', methods=['POST'])
+@app.route('/add_student', methods=['POST'])
 def add_student():
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No input data provided"}), 400
-    required_fields = ["name", "grade", "section", "age", "favorite_subject"]
-    if not all(field in data for field in required_fields):
-        return jsonify({"error": f"Missing fields. Required: {required_fields}"}), 400
+    name = request.form.get("name")
+    grade = request.form.get("grade")
+    section = request.form.get("section")
+    age = request.form.get("age")
+    favorite_subject = request.form.get("favorite_subject")
+
+    if not all([name, grade, section, age, favorite_subject]):
+        flash("All fields are required!", "danger")
+        return redirect(url_for('home'))
+
     new_id = max([s["id"] for s in students]) + 1 if students else 1
-    new_student = {"id": new_id, **data}
-    students.append(new_student)
-    return jsonify(new_student), 201
+    students.append({
+        "id": new_id,
+        "name": name,
+        "grade": int(grade),
+        "section": section,
+        "age": int(age),
+        "favorite_subject": favorite_subject
+    })
+    flash(f"Student {name} added successfully!", "success")
+    return redirect(url_for('home'))
 
 # -------------------------------
-# PUT update student
+# Edit student
 # -------------------------------
-@app.route('/student/<int:student_id>', methods=['PUT'])
-def update_student(student_id):
+@app.route('/edit_student/<int:student_id>', methods=['POST'])
+def edit_student(student_id):
     student = next((s for s in students if s["id"] == student_id), None)
     if not student:
-        return jsonify({"error": "Student not found"}), 404
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No input data provided"}), 400
-    # Update only fields provided
-    for key in ["name", "grade", "section", "age", "favorite_subject"]:
-        if key in data:
-            student[key] = data[key]
-    return jsonify(student), 200
+        flash("Student not found!", "danger")
+        return redirect(url_for('home'))
+
+    student["name"] = request.form.get("name")
+    student["grade"] = int(request.form.get("grade"))
+    student["section"] = request.form.get("section")
+    student["age"] = int(request.form.get("age"))
+    student["favorite_subject"] = request.form.get("favorite_subject")
+    flash(f"Student {student['name']} updated successfully!", "success")
+    return redirect(url_for('home'))
 
 # -------------------------------
-# DELETE student
+# Delete student
 # -------------------------------
-@app.route('/student/<int:student_id>', methods=['DELETE'])
+@app.route('/delete_student/<int:student_id>')
 def delete_student(student_id):
     global students
     student = next((s for s in students if s["id"] == student_id), None)
-    if not student:
-        return jsonify({"error": "Student not found"}), 404
-    students = [s for s in students if s["id"] != student_id]
-    return jsonify({"message": f"Student {student_id} deleted"}), 200
-
-# -------------------------------
-# Personalized hello
-# -------------------------------
-@app.route('/hello', methods=['GET'])
-def say_hello():
-    name = request.args.get('name', 'Student')
-    return jsonify({"message": f"Hello, {name}!"}), 200
+    if student:
+        students = [s for s in students if s["id"] != student_id]
+        flash(f"Student {student['name']} deleted successfully!", "success")
+    else:
+        flash("Student not found!", "danger")
+    return redirect(url_for('home'))
 
 # -------------------------------
 # Run the app
 # -------------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(debug=True)
