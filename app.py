@@ -11,7 +11,9 @@ def get_student():
     return jsonify({
         "name": "Juan",
         "grade": 10,
-        "section": "Zechariah"
+        "section": "Zechariah",
+        "age": 15,   # new field added
+        "favorite_subject": "Math"
     })
 
 @app.route('/hello')
@@ -22,4 +24,5 @@ def say_hello():
     })
 
 if __name__ == "__main__":
+
     app.run(host="0.0.0.0", port=5000, debug=True)
