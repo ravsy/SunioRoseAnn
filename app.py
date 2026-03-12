@@ -9,25 +9,12 @@ students = [
     {"id": 2, "name": "Maria", "grade": 9, "section": "Gabriel", "age": 14, "favorite_subject": "Science"}
 ]
 
-# -------------------------------
-# Home page with UI
-# -------------------------------
+# Keep track of last added/edited student for highlighting
+last_updated_id = None
+
 @app.route('/')
 def home():
-    search = request.args.get('search', '').lower()
-    sort_by = request.args.get('sort_by', '')
-
-    filtered_students = students
-    if search:
-        filtered_students = [s for s in students if search in s["name"].lower() 
-                             or search in s["section"].lower()
-                             or search in str(s["grade"])]
-
-    if sort_by == "name":
-        filtered_students.sort(key=lambda x: x["name"])
-    elif sort_by == "grade":
-        filtered_students.sort(key=lambda x: x["grade"])
-
+    global last_updated_id
     template = """
     <!DOCTYPE html>
     <html lang="en">
@@ -38,17 +25,13 @@ def home():
         <style>
             table tbody tr:hover {background-color: #f1f1f1;}
             .highlight {animation: highlight 2s;}
-            @keyframes highlight {
-                0% {background-color: #d1e7dd;}
-                100% {background-color: white;}
-            }
+            @keyframes highlight {0% {background-color: #d1e7dd;} 100% {background-color: white;}}
         </style>
     </head>
     <body class="bg-light">
     <div class="container py-5">
         <h1 class="mb-4 text-center text-primary">Student Management</h1>
 
-        <!-- Flash messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
@@ -59,18 +42,6 @@ def home():
             {% endfor %}
           {% endif %}
         {% endwith %}
-
-        <!-- Search & Sort -->
-        <div class="d-flex mb-3 gap-2">
-            <form class="d-flex" method="get">
-                <input class="form-control me-2" type="search" placeholder="Search by name, grade, section" name="search" value="{{ request.args.get('search','') }}">
-                <button class="btn btn-outline-primary" type="submit">Search</button>
-            </form>
-            <div class="btn-group ms-auto">
-                <a href="{{ url_for('home', sort_by='name') }}" class="btn btn-secondary btn-sm">Sort by Name</a>
-                <a href="{{ url_for('home', sort_by='grade') }}" class="btn btn-secondary btn-sm">Sort by Grade</a>
-            </div>
-        </div>
 
         <!-- Add Student Form -->
         <div class="card mb-4 p-3 shadow-sm border-primary">
@@ -101,8 +72,8 @@ def home():
                 </tr>
             </thead>
             <tbody>
-                {% for student in filtered_students %}
-                <tr class="highlight">
+                {% for student in students %}
+                <tr class="{% if student.id == last_updated_id %}highlight{% endif %}">
                     <form action="{{ url_for('edit_student', student_id=student.id) }}" method="POST">
                     <td>{{ student.id }}</td>
                     <td><input type="text" name="name" value="{{ student.name }}" class="form-control"></td>
@@ -122,18 +93,18 @@ def home():
             </tbody>
         </table>
     </div>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     </body>
     </html>
     """
-    return render_template_string(template, students=filtered_students)
+    return render_template_string(template, students=students, last_updated_id=last_updated_id)
 
 # -------------------------------
 # Add student
 # -------------------------------
 @app.route('/add_student', methods=['POST'])
 def add_student():
+    global last_updated_id
     name = request.form.get("name")
     grade = request.form.get("grade")
     section = request.form.get("section")
@@ -153,6 +124,7 @@ def add_student():
         "age": int(age),
         "favorite_subject": favorite_subject
     })
+    last_updated_id = new_id
     flash(f"Student {name} added successfully!", "success")
     return redirect(url_for('home'))
 
@@ -161,6 +133,7 @@ def add_student():
 # -------------------------------
 @app.route('/edit_student/<int:student_id>', methods=['POST'])
 def edit_student(student_id):
+    global last_updated_id
     student = next((s for s in students if s["id"] == student_id), None)
     if not student:
         flash("Student not found!", "danger")
@@ -171,6 +144,7 @@ def edit_student(student_id):
     student["section"] = request.form.get("section")
     student["age"] = int(request.form.get("age"))
     student["favorite_subject"] = request.form.get("favorite_subject")
+    last_updated_id = student_id
     flash(f"Student {student['name']} updated successfully!", "success")
     return redirect(url_for('home'))
 
@@ -179,17 +153,15 @@ def edit_student(student_id):
 # -------------------------------
 @app.route('/delete_student/<int:student_id>')
 def delete_student(student_id):
-    global students
+    global students, last_updated_id
     student = next((s for s in students if s["id"] == student_id), None)
     if student:
         students = [s for s in students if s["id"] != student_id]
         flash(f"Student {student['name']} deleted successfully!", "success")
     else:
         flash("Student not found!", "danger")
+    last_updated_id = None
     return redirect(url_for('home'))
 
-# -------------------------------
-# Run the app
-# -------------------------------
 if __name__ == "__main__":
     app.run(debug=True)
