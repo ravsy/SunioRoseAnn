@@ -15,6 +15,20 @@ last_updated_id = None
 @app.route('/')
 def home():
     global last_updated_id
+    search = request.args.get('search', '').lower()
+    sort_by = request.args.get('sort_by', '')
+
+    filtered_students = students
+    if search:
+        filtered_students = [s for s in students if search in s["name"].lower() 
+                             or search in s["section"].lower()
+                             or search in str(s["grade"])]
+
+    if sort_by == "name":
+        filtered_students.sort(key=lambda x: x["name"])
+    elif sort_by == "grade":
+        filtered_students.sort(key=lambda x: x["grade"])
+
     template = """
     <!DOCTYPE html>
     <html lang="en">
@@ -42,6 +56,18 @@ def home():
             {% endfor %}
           {% endif %}
         {% endwith %}
+
+        <!-- Search & Sort -->
+        <div class="d-flex mb-3 gap-2">
+            <form class="d-flex" method="get">
+                <input class="form-control me-2" type="search" placeholder="Search by name, grade, section" name="search" value="{{ request.args.get('search','') }}">
+                <button class="btn btn-outline-primary" type="submit">Search</button>
+            </form>
+            <div class="btn-group ms-auto">
+                <a href="{{ url_for('home', sort_by='name') }}" class="btn btn-secondary btn-sm">Sort by Name</a>
+                <a href="{{ url_for('home', sort_by='grade') }}" class="btn btn-secondary btn-sm">Sort by Grade</a>
+            </div>
+        </div>
 
         <!-- Add Student Form -->
         <div class="card mb-4 p-3 shadow-sm border-primary">
@@ -72,13 +98,13 @@ def home():
                 </tr>
             </thead>
             <tbody>
-                {% for student in students %}
+                {% for student in filtered_students %}
                 <tr class="{% if student.id == last_updated_id %}highlight{% endif %}">
                     <form action="{{ url_for('edit_student', student_id=student.id) }}" method="POST">
                     <td>{{ student.id }}</td>
                     <td><input type="text" name="name" value="{{ student.name }}" class="form-control"></td>
-                    <td><input type="number" name="grade" value="{{ student.grade }}" class="form-control"></td>
-                    <td><input type="text" name="section" value="{{ student.section }}" class="form-control"></td>
+                    <td><span class="badge bg-info text-dark">{{ student.grade }}</span></td>
+                    <td><span class="badge bg-warning text-dark">{{ student.section }}</span></td>
                     <td><input type="number" name="age" value="{{ student.age }}" class="form-control"></td>
                     <td><input type="text" name="favorite_subject" value="{{ student.favorite_subject }}" class="form-control"></td>
                     <td class="d-flex gap-1">
@@ -97,11 +123,8 @@ def home():
     </body>
     </html>
     """
-    return render_template_string(template, students=students, last_updated_id=last_updated_id)
+    return render_template_string(template, students=filtered_students, last_updated_id=last_updated_id)
 
-# -------------------------------
-# Add student
-# -------------------------------
 @app.route('/add_student', methods=['POST'])
 def add_student():
     global last_updated_id
@@ -128,9 +151,6 @@ def add_student():
     flash(f"Student {name} added successfully!", "success")
     return redirect(url_for('home'))
 
-# -------------------------------
-# Edit student
-# -------------------------------
 @app.route('/edit_student/<int:student_id>', methods=['POST'])
 def edit_student(student_id):
     global last_updated_id
@@ -148,9 +168,6 @@ def edit_student(student_id):
     flash(f"Student {student['name']} updated successfully!", "success")
     return redirect(url_for('home'))
 
-# -------------------------------
-# Delete student
-# -------------------------------
 @app.route('/delete_student/<int:student_id>')
 def delete_student(student_id):
     global students, last_updated_id
