@@ -14,6 +14,20 @@ students = [
 # -------------------------------
 @app.route('/')
 def home():
+    search = request.args.get('search', '').lower()
+    sort_by = request.args.get('sort_by', '')
+
+    filtered_students = students
+    if search:
+        filtered_students = [s for s in students if search in s["name"].lower() 
+                             or search in s["section"].lower()
+                             or search in str(s["grade"])]
+
+    if sort_by == "name":
+        filtered_students.sort(key=lambda x: x["name"])
+    elif sort_by == "grade":
+        filtered_students.sort(key=lambda x: x["grade"])
+
     template = """
     <!DOCTYPE html>
     <html lang="en">
@@ -21,10 +35,18 @@ def home():
         <meta charset="UTF-8">
         <title>Student Management</title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        <style>
+            table tbody tr:hover {background-color: #f1f1f1;}
+            .highlight {animation: highlight 2s;}
+            @keyframes highlight {
+                0% {background-color: #d1e7dd;}
+                100% {background-color: white;}
+            }
+        </style>
     </head>
     <body class="bg-light">
     <div class="container py-5">
-        <h1 class="mb-4 text-center">Student Management</h1>
+        <h1 class="mb-4 text-center text-primary">Student Management</h1>
 
         <!-- Flash messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -38,9 +60,21 @@ def home():
           {% endif %}
         {% endwith %}
 
+        <!-- Search & Sort -->
+        <div class="d-flex mb-3 gap-2">
+            <form class="d-flex" method="get">
+                <input class="form-control me-2" type="search" placeholder="Search by name, grade, section" name="search" value="{{ request.args.get('search','') }}">
+                <button class="btn btn-outline-primary" type="submit">Search</button>
+            </form>
+            <div class="btn-group ms-auto">
+                <a href="{{ url_for('home', sort_by='name') }}" class="btn btn-secondary btn-sm">Sort by Name</a>
+                <a href="{{ url_for('home', sort_by='grade') }}" class="btn btn-secondary btn-sm">Sort by Grade</a>
+            </div>
+        </div>
+
         <!-- Add Student Form -->
-        <div class="card mb-4 p-3 shadow-sm">
-            <h4>Add New Student</h4>
+        <div class="card mb-4 p-3 shadow-sm border-primary">
+            <h4 class="text-primary">Add New Student</h4>
             <form action="{{ url_for('add_student') }}" method="POST">
                 <div class="row g-3">
                     <div class="col-md-2"><input type="text" name="name" class="form-control" placeholder="Name"></div>
@@ -67,8 +101,8 @@ def home():
                 </tr>
             </thead>
             <tbody>
-                {% for student in students %}
-                <tr>
+                {% for student in filtered_students %}
+                <tr class="highlight">
                     <form action="{{ url_for('edit_student', student_id=student.id) }}" method="POST">
                     <td>{{ student.id }}</td>
                     <td><input type="text" name="name" value="{{ student.name }}" class="form-control"></td>
@@ -78,7 +112,9 @@ def home():
                     <td><input type="text" name="favorite_subject" value="{{ student.favorite_subject }}" class="form-control"></td>
                     <td class="d-flex gap-1">
                         <button type="submit" class="btn btn-success btn-sm">Save</button>
-                        <a href="{{ url_for('delete_student', student_id=student.id) }}" class="btn btn-danger btn-sm">Delete</a>
+                        <a href="{{ url_for('delete_student', student_id=student.id) }}" 
+                           class="btn btn-danger btn-sm" 
+                           onclick="return confirm('Are you sure you want to delete this student?');">Delete</a>
                     </td>
                     </form>
                 </tr>
@@ -91,7 +127,7 @@ def home():
     </body>
     </html>
     """
-    return render_template_string(template, students=students)
+    return render_template_string(template, students=filtered_students)
 
 # -------------------------------
 # Add student
