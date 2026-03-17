@@ -6,9 +6,9 @@ app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
 # ----------------
-# DATABASE SETUP
+# DATABASE CONFIG
 # ----------------
-# Works with psycopg3 (psycopg[binary])
+# Use your Render PostgreSQL credentials
 app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://student_user:I3bs3JHp1ZgNrxmTAIVS9SOUsJFXLOd8@dpg-d6sfn74hg0os73f66bt0-a/student_db_x63g"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -121,13 +121,13 @@ def add_student():
     return redirect(url_for('index'))
 
 # ----------------
-# CREATE TABLES (ONLY ONCE)
+# CREATE TABLES
 # ----------------
 with app.app_context():
     db.create_all()
 
 # ----------------
-# RUN APP (RENDER-FRIENDLY)
+# RUN APP (RENDER FRIENDLY)
 # ----------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
