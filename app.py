@@ -1,5 +1,6 @@
 from flask import Flask, request, redirect, url_for, flash, render_template_string
 from flask_sqlalchemy import SQLAlchemy
+import os
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
@@ -125,5 +126,9 @@ def add_student():
 with app.app_context():
     db.create_all()
 
+# ----------------
+# RUN APP (RENDER-FRIENDLY)
+# ----------------
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
