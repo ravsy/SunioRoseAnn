@@ -8,7 +8,7 @@ app.secret_key = "supersecretkey"
 # ----------------
 # DATABASE SETUP
 # ----------------
-# Render PostgreSQL Database URL
+# Works with psycopg3 (psycopg[binary])
 app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://student_user:I3bs3JHp1ZgNrxmTAIVS9SOUsJFXLOd8@dpg-d6sfn74hg0os73f66bt0-a/student_db_x63g"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
